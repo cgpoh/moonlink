@@ -16,9 +16,17 @@ pub struct RestCatalogConfig {
     #[serde(default)]
     pub uri: String,
 
+    /// Warehouse identifier sent to the REST catalog server.
+    /// Some servers (i.e. iceberg-rest-fixture) take a storage URI, while others (i.e. Apache Polaris) take a logical catalog name.
     #[serde(rename = "warehouse")]
     #[serde(default)]
     pub warehouse: String,
+
+    /// Storage URI under which iceberg tables are created, i.e. "s3://bucket/path".
+    /// Required when [`warehouse`] is a logical name rather than a storage URI (i.e. Apache Polaris); defaults to [`warehouse`] if unset.
+    #[serde(rename = "warehouse_location")]
+    #[serde(default)]
+    pub warehouse_location: Option<String>,
 
     /// Optional configuration properties.
     /// Unknown configs will be ignored.
@@ -26,13 +34,22 @@ pub struct RestCatalogConfig {
     /// - prefix:          Optional URL path prefix to insert after the base URI and API version.
     /// - oauth2-server-uri: Custom OAuth2 server URI. Defaults to: [uri, PATH_V1:"v1", "oauth", "tokens"].join("/")
     /// - token:           Static authentication token used by the client for sending requests.
-    /// - credentials:     Client credentials used to fetch a new token.
-    ///     - None: No credentials provided.
-    ///     - Some(None, client_secret): Only client_secret is provided.
-    ///     - Some(Some(client_id), client_secret): Both client_id and client_secret are provided.
+    /// - credential:      Client credentials used to fetch a new token, in the format of "<client_id>:<client_secret>" or "<client_secret>".
+    /// - scope:           OAuth2 scope to request, defaults to "catalog". Apache Polaris requires "PRINCIPAL_ROLE:<role>" or "PRINCIPAL_ROLE:ALL".
+    /// - header.<name>:   Extra HTTP header attached to every request.
     #[serde(rename = "props")]
     #[serde(default)]
     pub props: HashMap<String, String>,
+}
+
+#[cfg(feature = "catalog-rest")]
+impl RestCatalogConfig {
+    /// Get the storage URI under which iceberg tables are created.
+    pub fn get_warehouse_location(&self) -> String {
+        self.warehouse_location
+            .clone()
+            .unwrap_or_else(|| self.warehouse.clone())
+    }
 }
 
 #[cfg(all(feature = "catalog-glue", feature = "storage-s3"))]
@@ -100,7 +117,7 @@ impl IcebergCatalogConfig {
             #[cfg(feature = "catalog-rest")]
             IcebergCatalogConfig::Rest {
                 rest_catalog_config,
-            } => rest_catalog_config.warehouse.clone(),
+            } => rest_catalog_config.get_warehouse_location(),
             #[cfg(all(feature = "catalog-glue", feature = "storage-s3"))]
             IcebergCatalogConfig::Glue {
                 glue_catalog_config,
@@ -172,5 +189,27 @@ impl Default for IcebergTableConfig {
                 accessor_config: AccessorConfig::new_with_storage_config(storage_config),
             },
         }
+    }
+}
+
+#[cfg(all(test, feature = "catalog-rest"))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_rest_catalog_warehouse_location() {
+        // Warehouse location falls back to warehouse when unset.
+        let config: RestCatalogConfig =
+            serde_json::from_str(r#"{"name":"c","uri":"http://h:8181","warehouse":"s3://b/p"}"#)
+                .unwrap();
+        assert_eq!(config.get_warehouse_location(), "s3://b/p");
+
+        // Logical warehouse (i.e. Apache Polaris catalog name) with separate storage location.
+        let config: RestCatalogConfig = serde_json::from_str(
+            r#"{"name":"c","uri":"http://h:8181/api/catalog","warehouse":"polaris_catalog","warehouse_location":"s3://b/p"}"#,
+        )
+        .unwrap();
+        assert_eq!(config.warehouse, "polaris_catalog");
+        assert_eq!(config.get_warehouse_location(), "s3://b/p");
     }
 }

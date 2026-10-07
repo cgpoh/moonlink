@@ -214,7 +214,9 @@ pub(crate) async fn test_update_table_impl(
     let namespace = NamespaceIdent::from_strs([&namespace]).unwrap();
     let table_name = table_name.clone();
     let table_ident = TableIdent::new(namespace.clone(), table_name.clone());
-    catalog.load_metadata(&table_ident).await.unwrap();
+    let (_, table_metadata) = catalog.load_metadata(&table_ident).await.unwrap();
+    // Keep manifest list under table location, since some catalogs (i.e. Apache Polaris) reject files outside of allowed locations.
+    let table_location = table_metadata.location().to_string();
 
     let millis = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -230,9 +232,7 @@ pub(crate) async fn test_update_table_impl(
                 .with_timestamp_ms(millis as i64)
                 .with_schema_id(0)
                 .with_manifest_list(format!(
-                    "s3://{}/{}/snap-8161620281254644995-0-01966b87-6e93-7bc1-9e12-f1980d9737d3.avro",
-                    namespace.to_url_string(),
-                    table_name
+                    "{table_location}/metadata/snap-8161620281254644995-0-01966b87-6e93-7bc1-9e12-f1980d9737d3.avro"
                 ))
                 .with_parent_snapshot_id(None)
                 .with_summary(iceberg::spec::Summary {

@@ -410,6 +410,58 @@ jobs:
         run: |
           ${{ matrix.cmd }}
 
+  # ──────────────────── 6b · Polaris catalog test (feature) ─────────────────
+  polaris_catalog_test:
+    name: Polaris catalog tests (feature)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+        id: toolchain
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          shared-key: ${{ steps.toolchain.outputs.cachekey }}
+
+      - uses: rui314/setup-mold@v1
+        with:
+          mold-version: 2.40.3
+          make-default: true
+
+      # ─────────────────────── Start Polaris ──────────────────────────
+      - name: Start Polaris
+        run: |
+          docker run -d \
+            --name polaris \
+            -p 8181:8181 \
+            -e POLARIS_BOOTSTRAP_CREDENTIALS=POLARIS,root,s3cr3t \
+            -e polaris.realm-context.realms=POLARIS \
+            -e quarkus.otel.sdk.disabled=true \
+            -e 'polaris.features."ALLOW_INSECURE_STORAGE_TYPES"=true' \
+            -e 'polaris.features."SUPPORTED_CATALOG_STORAGE_TYPES"=["FILE"]' \
+            -e polaris.readiness.ignore-severe-issues=true \
+            apache/polaris:latest
+
+      # ─────────────── Add hostnames to /etc/hosts ──────────────────────────
+      - name: Add polaris.local to /etc/hosts
+        run: |
+          echo "127.0.0.1 polaris.local" | sudo tee -a /etc/hosts
+
+      # ─────────────── Wait for Polaris and create test catalog ───────────────
+      - name: Create Polaris test catalog
+        timeout-minutes: 2
+        env:
+          POLARIS_URI: http://polaris.local:8181
+        run: ./.devcontainer/polaris-setup.sh
+
+      - name: Run Polaris catalog feature test
+        env:
+          MOONLINK_TEST_REST_CATALOG: polaris
+        run: |
+          RUST_BACKTRACE=1 cargo test --lib --features=catalog-rest -- rest_catalog
+
   # ───────────────────────── 7 · TEST & COVERAGE ────────────────────────────
   coverage:
     name: Unit Tests + Coverage (llvm-cov + nextest)
