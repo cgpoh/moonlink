@@ -30,10 +30,13 @@ pub(super) fn get_cache_directory_under_base(base_path: &str) -> std::path::Path
 /// Util function to get filesystem size for cache directory
 fn get_cache_filesystem_size(path: &str) -> u64 {
     let vfs_stat = nix::sys::statvfs::statvfs(path).unwrap();
-    let block_size = vfs_stat.block_size();
-    let avai_blocks = vfs_stat.files_available();
+    // Available blocks are counted in fragment size units.
+    let fragment_size = vfs_stat.fragment_size();
+    let avai_blocks = vfs_stat.blocks_available();
 
-    (block_size as u64).checked_mul(avai_blocks as u64).unwrap()
+    (fragment_size as u64)
+        .checked_mul(avai_blocks as u64)
+        .unwrap()
 }
 
 /// Create default object storage cache.
