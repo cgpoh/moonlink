@@ -91,6 +91,8 @@ impl TestGuard {
                     atomic_write_dir: None,
                 },
             )),
+            #[cfg(feature = "catalog-rest")]
+            rest_catalog_config: None,
         };
         serde_json::to_string(&table_config).unwrap()
     }
@@ -461,6 +463,8 @@ pub fn get_serialized_table_config(tmp_dir: &TempDir) -> String {
                 atomic_write_dir: None,
             },
         )),
+        #[cfg(feature = "catalog-rest")]
+        rest_catalog_config: None,
     };
     serde_json::to_string(&table_config).unwrap()
 }
