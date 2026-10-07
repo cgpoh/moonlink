@@ -1,0 +1,87 @@
+# to deploy: IMAGE=<acr>.azurecr.io/moonlink:azdls envsubst < deploy/azure/prod/deployment/moonlink_deployment.yaml | kubectl apply -f -
+#
+# Image must be built with ADLS support:
+#   docker build -f Dockerfile.amd64 --platform linux/amd64 --build-arg CARGO_FEATURES=moonlink_service/storage-azdls -t $IMAGE .
+#
+# Azure credentials are read from the optional secret `moonlink-azure-credentials` for tables created with `"auth": {"type": "environment"}`, see deploy/azure/README.md.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: moonlink-deployment
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 20%
+  selector:
+    matchLabels:
+      app: moonlink-deployment
+  template:
+    metadata:
+      labels:
+        app: moonlink-deployment
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+      containers:
+      # Moonlink deployment, which serves REST API and TCP rpc requests.
+      - name: moonlink-deployment
+        image: ${IMAGE}
+        command: ["/app/moonlink_service"]
+        args:
+        - "/tmp/moonlink"
+        - "--tcp-port=3031"
+        # TODO(hjiang): Revisit before release and production deployment, use a dummy guaranteed QoS for now.
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "1Gi"
+          limits:
+            cpu: "500m"
+            memory: "1Gi"
+        envFrom:
+        # Either AZURE_CLIENT_ID alone (managed identity), or AZURE_TENANT_ID, AZURE_CLIENT_ID and AZURE_CLIENT_SECRET (service principal).
+        - secretRef:
+            name: moonlink-azure-credentials
+            optional: true
+        volumeMounts:
+        - name: shared-cache-directory
+          mountPath: /tmp/moonlink
+        ports:
+        # Port number for REST API server.
+        - containerPort: 3030
+        # Port number for TCP rpc server.
+        - containerPort: 3031
+        # Port number for readiness probe.
+        - containerPort: 5050
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 5050
+          initialDelaySeconds: 2
+          periodSeconds: 5
+          timeoutSeconds: 1
+          failureThreshold: 3
+
+      # Data server, which serves data plane requests.
+      - name: nginx
+        image: nginx:latest
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        # nginx serves local files under certain directory.
+        - name: shared-cache-directory
+          mountPath: /usr/share/nginx/html
+
+      volumes:
+      # Shared cache directory between data server and moonlink.
+      - name: shared-cache-directory
+        emptyDir: {}

@@ -25,6 +25,8 @@ pub use filesystem::accessor_config::{
     AccessorConfig, ChaosConfig as FsChaosConfig, RetryConfig as FsRetryConfig,
     ThrottleConfig as FsThrottleConfig, TimeoutConfig as FsTimeoutConfig,
 };
+#[cfg(feature = "storage-azdls")]
+pub use filesystem::storage_config::AzdlsAuth;
 pub use filesystem::storage_config::StorageConfig;
 pub use index::index_merge_config::FileIndexMergeConfig;
 pub use mooncake_table::table_config::TableConfig as MoonlinkTableConfig;

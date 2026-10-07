@@ -3,6 +3,8 @@ use crate::storage::filesystem::accessor_config::AccessorConfig;
 use crate::storage::filesystem::accessor_config::RetryConfig;
 use crate::storage::filesystem::accessor_config::ThrottleConfig;
 use crate::storage::filesystem::accessor_config::TimeoutConfig;
+#[cfg(feature = "storage-azdls")]
+use crate::storage::filesystem::storage_config::get_azdls_host;
 use crate::storage::filesystem::storage_config::StorageConfig;
 use crate::Result;
 
@@ -75,6 +77,42 @@ fn create_opendal_operator_impl(storage_config: &StorageConfig) -> Result<Operat
                 .disable_ec2_metadata();
             if let Some(endpoint) = endpoint {
                 builder = builder.endpoint(endpoint);
+            }
+            Ok(Operator::new(builder)?.finish())
+        }
+        #[cfg(feature = "storage-azdls")]
+        StorageConfig::Azdls {
+            account_name,
+            filesystem,
+            endpoint_suffix,
+            auth,
+        } => {
+            let mut builder = services::Azdls::default()
+                .root("/")
+                .filesystem(filesystem)
+                .endpoint(&format!(
+                    "https://{}",
+                    get_azdls_host(account_name, endpoint_suffix)
+                ))
+                .account_name(account_name);
+            let credentials = auth.resolve_credentials();
+            if let Some(account_key) = &credentials.account_key {
+                builder = builder.account_key(account_key);
+            }
+            if let Some(sas_token) = &credentials.sas_token {
+                builder = builder.sas_token(sas_token);
+            }
+            if let Some(tenant_id) = &credentials.tenant_id {
+                builder = builder.tenant_id(tenant_id);
+            }
+            if let Some(client_id) = &credentials.client_id {
+                builder = builder.client_id(client_id);
+            }
+            if let Some(client_secret) = &credentials.client_secret {
+                builder = builder.client_secret(client_secret);
+            }
+            if let Some(authority_host) = &credentials.authority_host {
+                builder = builder.authority_host(authority_host);
             }
             Ok(Operator::new(builder)?.finish())
         }
