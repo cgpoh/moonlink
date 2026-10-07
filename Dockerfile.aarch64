@@ -12,7 +12,9 @@ COPY . .
 RUN apt-get update && apt-get install -y gcc-aarch64-linux-gnu
 ENV CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
 RUN rustup target add aarch64-unknown-linux-gnu
-RUN cargo build --target aarch64-unknown-linux-gnu --verbose
+# Optional moonlink_service features, i.e. --build-arg CARGO_FEATURES=storage-s3,catalog-rest
+ARG CARGO_FEATURES=""
+RUN cargo build --target aarch64-unknown-linux-gnu --verbose ${CARGO_FEATURES:+-p moonlink_service --features $CARGO_FEATURES}
 
 # Use a slim image for docker image used for cloud deployment.
 FROM ubuntu:24.04

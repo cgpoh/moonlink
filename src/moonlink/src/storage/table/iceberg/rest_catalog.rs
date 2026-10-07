@@ -47,6 +47,7 @@ impl RestCatalog {
         iceberg_schema: IcebergSchema,
     ) -> IcebergResult<Self> {
         let builder = IcebergRestCatalogBuilder::default();
+        let warehouse_location = config.get_warehouse_location();
         config
             .props
             .insert(REST_CATALOG_PROP_URI.to_string(), config.uri);
@@ -54,7 +55,6 @@ impl RestCatalog {
             REST_CATALOG_PROP_WAREHOUSE.to_string(),
             config.warehouse.clone(),
         );
-        let warehouse_location = config.warehouse.clone();
         let catalog = builder.load(config.name, config.props).await?;
         let file_io = iceberg_io_utils::create_file_io(&accessor_config)?;
         Ok(Self {
@@ -72,6 +72,7 @@ impl RestCatalog {
         accessor_config: AccessorConfig,
     ) -> IcebergResult<Self> {
         let builder = IcebergRestCatalogBuilder::default();
+        let warehouse_location = config.get_warehouse_location();
         config
             .props
             .insert(REST_CATALOG_PROP_URI.to_string(), config.uri);
@@ -79,7 +80,6 @@ impl RestCatalog {
             REST_CATALOG_PROP_WAREHOUSE.to_string(),
             config.warehouse.clone(),
         );
-        let warehouse_location = config.warehouse.clone();
         let catalog = builder.load(config.name, config.props).await?;
         let file_io = iceberg_io_utils::create_file_io(&accessor_config)?;
         Ok(Self {

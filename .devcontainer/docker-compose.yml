@@ -14,6 +14,7 @@ services:
       - fake-gcs
       - nginx
       - iceberg-rest
+      - polaris-init
       - iceberg-glue
     command: sleep infinity
 
@@ -52,6 +53,36 @@ services:
           - iceberg-rest.local
     ports:
       - "8181:8181"
+
+  polaris:
+    image: apache/polaris:latest
+    environment:
+      POLARIS_BOOTSTRAP_CREDENTIALS: POLARIS,root,s3cr3t
+      polaris.realm-context.realms: POLARIS
+      quarkus.otel.sdk.disabled: "true"
+      polaris.features."ALLOW_INSECURE_STORAGE_TYPES": "true"
+      polaris.features."SUPPORTED_CATALOG_STORAGE_TYPES": '["FILE"]'
+      polaris.readiness.ignore-severe-issues: "true"
+    networks:
+      shared_network:
+        aliases:
+          - polaris.local
+    ports:
+      - "8281:8181"  # Catalog API
+      - "8282:8182"  # Management / health
+
+  # Creates the Polaris catalog used by rest catalog tests, then exits.
+  polaris-init:
+    image: curlimages/curl:latest
+    depends_on:
+      - polaris
+    environment:
+      POLARIS_URI: http://polaris.local:8181
+    volumes:
+      - ./polaris-setup.sh:/polaris-setup.sh:ro
+    entrypoint: ["sh", "/polaris-setup.sh"]
+    networks:
+      - shared_network
 
   iceberg-glue:
     image: motoserver/moto:5.0.3

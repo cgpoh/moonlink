@@ -653,6 +653,7 @@ impl TableHandler {
                                 );
                             }
                             Err(e) => {
+                                error!(error = ?e, "failed to persist iceberg snapshot");
                                 if table_handler_state.has_pending_force_snapshot_request() {
                                     if let Err(send_err) = table_handler_state
                                         .force_snapshot_completion_tx
