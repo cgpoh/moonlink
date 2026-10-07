@@ -11,7 +11,7 @@ required-features = ["profile-test"]
 
 [features]
 default = ["storage-fs"]
-storage-all = ["storage-fs", "storage-s3", "storage-gcs"]
+storage-all = ["storage-fs", "storage-s3", "storage-gcs", "storage-azdls"]
 test-utils = []
 
 storage-fs = ["opendal/services-fs", "iceberg/storage-fs"]
@@ -34,6 +34,9 @@ storage-gcs = [
     "hmac",
     "sha1",
 ]
+
+# Azure Data Lake Storage Gen2.
+storage-azdls = ["opendal/services-azdls", "iceberg/storage-azdls"]
 
 catalog-rest = ["iceberg-catalog-rest"]
 catalog-glue = ["iceberg-catalog-glue"]

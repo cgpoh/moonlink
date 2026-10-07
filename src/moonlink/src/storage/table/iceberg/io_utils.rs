@@ -153,6 +153,28 @@ pub(crate) fn create_file_io(accessor_config: &AccessorConfig) -> IcebergResult<
             }
             file_io_builder.build()
         }
+        #[cfg(feature = "storage-azdls")]
+        StorageConfig::Azdls {
+            account_name, auth, ..
+        } => {
+            let credentials = auth.resolve_credentials();
+            let props = [
+                (iceberg::io::ADLS_ACCOUNT_KEY, credentials.account_key),
+                (iceberg::io::ADLS_SAS_TOKEN, credentials.sas_token),
+                (iceberg::io::ADLS_TENANT_ID, credentials.tenant_id),
+                (iceberg::io::ADLS_CLIENT_ID, credentials.client_id),
+                (iceberg::io::ADLS_CLIENT_SECRET, credentials.client_secret),
+                (iceberg::io::ADLS_AUTHORITY_HOST, credentials.authority_host),
+            ];
+            let file_io_builder = FileIOBuilder::new("abfss")
+                .with_prop(iceberg::io::ADLS_ACCOUNT_NAME, account_name)
+                .with_props(
+                    props
+                        .into_iter()
+                        .filter_map(|(key, value)| value.map(|value| (key, value))),
+                );
+            file_io_builder.build()
+        }
     }
 }
 

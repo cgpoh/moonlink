@@ -15,8 +15,9 @@ test-tls = ["moonlink_connectors/test-tls", "moonlink_metadata_store/test-tls"]
 
 storage-s3 = ["moonlink/storage-s3", "moonlink_metadata_store/storage-s3"]
 storage-gcs = ["moonlink/storage-gcs", "moonlink_metadata_store/storage-gcs"]
+storage-azdls = ["moonlink/storage-azdls", "moonlink_metadata_store/storage-azdls"]
 storage-fs = ["moonlink/storage-fs", "moonlink_metadata_store/storage-fs"]
-storage-all = ["storage-s3", "storage-gcs", "storage-fs"]
+storage-all = ["storage-s3", "storage-gcs", "storage-azdls", "storage-fs"]
 
 [dependencies]
 apache-avro = { workspace = true }
